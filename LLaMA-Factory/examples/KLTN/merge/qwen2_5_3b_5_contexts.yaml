@@ -1,0 +1,11 @@
+### model
+model_name_or_path: Qwen/Qwen2.5-3B-Instruct
+adapter_name_or_path: saves/qwen2_5_3b/lora/sft/kltn_5_contexts
+template: qwen
+trust_remote_code: true
+
+### export
+export_dir: output/qwen2_5_3b_5_contexts
+export_size: 5
+export_device: cpu
+export_legacy_format: false

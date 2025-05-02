@@ -1,0 +1,22 @@
+{
+    "contextual_chunk+context": {
+        "description": "Đoạn summary ở đầu đoạn văn bản gốc -> ingest cả đoạn to",
+        "vector_db": {
+            "path": "contextual_chunk_with_context_db/chroma_db",
+            "collection_name": "contextual_chunk_with_context"
+        },
+        "bm25s": {
+            "path": "contextual_chunk_with_context_db/bm25_retriever"
+        }
+    },
+    "only_chunk": {
+        "description": "Chỉ có mỗi đoạn văn bản gốc",
+        "vector_db": {
+            "path": "output_large_hybrid_with_context",
+            "collection_name": "output_large_hybrid_with_context"
+        },
+        "bm25s": {
+            "path": "bm25_retriever_with_context"
+        }
+    }
+}

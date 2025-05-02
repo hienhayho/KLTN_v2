@@ -10,14 +10,14 @@ load_dotenv()
 
 
 class CheckDomainResponse(BaseModel):
-    is_related_to: bool
+    topic: Literal["greeting", "bye", "administration", "other"]
 
 
 async def check_domain(
     *,
     text: str,
     model: str,
-    system_prompt_mode: Literal["plain_text", "json"] = "plain_text",
+    prompt_mode: Literal["plain_text", "json"] = "plain_text",
 ) -> str:
     """
     Check if the given text is in-domain or out-of-domain using a language model.
@@ -25,7 +25,7 @@ async def check_domain(
     Args:
         text (str): The text to be checked.
         model (str): The language model to use for checking.
-        system_prompt_mode (str): The mode of the system prompt to use.
+        prompt_mode (str): The mode of the system prompt to use.
             - "plain_text": Use the plain text version of the system prompt.
             - "json": Use the JSON version of the system prompt.
 
@@ -34,24 +34,24 @@ async def check_domain(
     """
     llm = OpenAI(model=model)
 
-    assert system_prompt_mode in ["plain_text", "json"], (
-        f"Invalid system_prompt_mode: {system_prompt_mode}. "
-        "Must be one of ['plain_text', 'json']"
+    assert prompt_mode in ["plain_text", "json"], (
+        f"Invalid prompt_mode: {prompt_mode}. " "Must be one of ['plain_text', 'json']"
     )
 
     system_prompt = (
         check_domain_prompt.system_prompt.plain_text_version
-        if system_prompt_mode == "plain_text"
+        if prompt_mode == "plain_text"
         else check_domain_prompt.system_prompt.json_version
+    )
+    user_prompt = (
+        check_domain_prompt.user_prompt.plain_text_version
+        if prompt_mode == "plain_text"
+        else check_domain_prompt.user_prompt.json_version
     )
     messages = [
         ChatMessage(role="system", content=system_prompt),
-        ChatMessage(
-            role="user", content=check_domain_prompt.user_prompt.format(query=text)
-        ),
+        ChatMessage(role="user", content=user_prompt.format(query=text)),
     ]
 
     response = await llm.achat(messages=messages)
-    return CheckDomainResponse.model_validate_json(
-        response.message.content
-    ).is_related_to
+    return CheckDomainResponse.model_validate_json(response.message.content).topic

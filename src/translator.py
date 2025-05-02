@@ -1,26 +1,74 @@
 import asyncio
+import logging
 from loguru import logger
 from typing import Literal
 from googletrans import Translator
+from lingua import Language, LanguageDetectorBuilder
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_fixed,
+    after_log,
+    before_sleep_log,
+    retry_if_exception_type,
+)
 from llama_index.llms.openai import OpenAI
 from llama_index.core.llms import ChatMessage
 
+from src.utils import config
 from src.prompt import translate_prompt
 
 
-async def detect_lang(text: str) -> str:
+async def async_detect_lang(text: str) -> str:
     """
     Detect the language of the given text.
 
     Args:
         text (str): The text whose language is to be detected.
+        method (str): The method to use for language detection.
 
     Returns:
         str: The detected language code (e.g., 'en' for English).
     """
+    method = config.detect_language_options.method
+
+    if method == "ggtrans":
+        return await ggtrans_detect_lang(text)
+    elif method == "lingua":
+        return lingua_detect_lang(text)
+    else:
+        raise ValueError(f"Invalid method: {method}")
+
+
+async def ggtrans_detect_lang(text: str):
+    """
+    Detect the language of the given text using Google Translate.
+    """
+    small_text = text.split("\n")[:2]
+
     async with Translator() as translator:
-        result = await translator.detect(text)
+        result = await translator.detect("\n".join(small_text))
         return result.lang
+
+
+def lingua_detect_lang(
+    text: str,
+) -> str:
+    """
+    Detect the language of the given text using lingua.
+
+    Args:
+        text (str): The text whose language is to be detected.
+        src_lang (str): The source language code (e.g., 'en' for English).
+
+    Returns:
+        str: The detected language code (e.g., 'en' for English).
+    """
+    languages = [Language.ENGLISH, Language.VIETNAMESE]
+    detector = LanguageDetectorBuilder.from_languages(*languages).build()
+    language = detector.detect_language_of(text)
+
+    return language.iso_code_639_1.name.lower()
 
 
 async def translate_ggtrans(text: str, src_lang: str, tgt_lang: str) -> str:
@@ -45,7 +93,7 @@ async def translate_llm(
     src_lang: str,
     tgt_lang: str,
     model: str,
-    system_prompt_mode: Literal["plain_text", "json"] = "plain_text",
+    prompt_mode: Literal["plain_text", "json"] = "plain_text",
 ) -> str:
     """
     Translate the given text using a language model.
@@ -55,7 +103,7 @@ async def translate_llm(
         src_lang (str): The source language code (e.g., 'en' for English).
         tgt_lang (str): The target language code (e.g., 'vi' for Vietnamese).
         model (str): The language model to use for translation.
-        system_prompt_mode (str): The mode of the system prompt to use.
+        prompt_mode (str): The mode of the prompt to use.
             - "plain_text": Use the plain text version of the system prompt.
             - "json": Use the JSON version of the system prompt.
 
@@ -66,8 +114,13 @@ async def translate_llm(
 
     system_prompt = (
         translate_prompt.system_prompt.plain_text_version
-        if system_prompt_mode == "plain_text"
+        if prompt_mode == "plain_text"
         else translate_prompt.system_prompt.json_version
+    )
+    user_prompt = (
+        translate_prompt.user_prompt.plain_text_version
+        if prompt_mode == "plain_text"
+        else translate_prompt.user_prompt.json_version
     )
 
     def get_lang(lang: str) -> str:
@@ -84,22 +137,28 @@ async def translate_llm(
                 src_lang=get_lang(src_lang), tgt_lang=get_lang(tgt_lang)
             ),
         ),
-        ChatMessage(
-            role="user", content=translate_prompt.user_prompt.format(query=text)
-        ),
+        ChatMessage(role="user", content=user_prompt.format(query=text)),
     ]
     response = await llm.achat(messages=messages)
 
     return response.message.content
 
 
+@retry(
+    reraise=True,
+    stop=stop_after_attempt(5),
+    wait=wait_fixed(5),
+    after=after_log(logger, logging.DEBUG),
+    before_sleep=before_sleep_log(logger, logging.DEBUG),
+    retry=retry_if_exception_type(BaseException),
+)
 async def translate(
     *,
     text: str,
     tgt_lang: str,
     method: Literal["ggtrans", "llm"],
     model: str | None = None,
-    system_prompt_mode: Literal["plain_text", "json"] = "plain_text",
+    prompt_mode: Literal["plain_text", "json"] = "plain_text",
 ) -> str:
     """
     Translate the given text from source language to target language.
@@ -115,7 +174,7 @@ async def translate(
     Returns:
         str: The translated text.
     """
-    text_lang = await detect_lang(text)
+    text_lang = await async_detect_lang(text)
     if text_lang == tgt_lang:
         return text
 
@@ -131,7 +190,7 @@ async def translate(
 
     elif method == "llm":
         assert model is not None, "Model must be specified when using 'llm' method."
-        return await translate_llm(text, text_lang, tgt_lang, model, system_prompt_mode)
+        return await translate_llm(text, text_lang, tgt_lang, model, prompt_mode)
 
 
 async def translate_final_answer(
@@ -140,7 +199,7 @@ async def translate_final_answer(
     answer: str,
     method: Literal["ggtrans", "llm"],
     model: str | None = None,
-    system_prompt_mode: Literal["plain_text", "json"] = "plain_text",
+    prompt_mode: Literal["plain_text", "json"] = "plain_text",
 ) -> str:
     """
     Translate the final answer to the language of the query.
@@ -151,7 +210,7 @@ async def translate_final_answer(
             - "ggtrans": Use Google Translate.
             - "llm": Use a language model for translation.
         model (str | None): The OpenAI's LLM to use for translation (if method is "llm").
-        system_prompt_mode (str): The mode of the system prompt to use.
+        prompt_mode (str): The mode of the system prompt to use.
             - "plain_text": Use the plain text version of the system prompt.
             - "json": Use the JSON version of the system prompt.
 
@@ -164,8 +223,8 @@ async def translate_final_answer(
     ], "Invalid translation method. Use 'ggtrans' or 'llm'."
 
     query_lang, answer_lang = await asyncio.gather(
-        detect_lang(query),
-        detect_lang(answer),
+        async_detect_lang(query),
+        async_detect_lang(answer),
     )
 
     if query_lang == answer_lang:
@@ -178,5 +237,5 @@ async def translate_final_answer(
         tgt_lang=query_lang,
         method=method,
         model=model,
-        system_prompt_mode=system_prompt_mode,
+        prompt_mode=prompt_mode,
     )

@@ -13,10 +13,10 @@ from llama_index.core.workflow import (
 from src.utils import config
 from src.retrieve import retrive
 from src.check_domain import check_domain
-from src.answer import openai_generate_answer
 from src.rewrite_prompt import rewrite_prompt
-from src.constants import out_domain_responses
 from src.translator import translate, translate_final_answer
+from src.answer import openai_generate_answer, vllm_generate_answer
+from src.constants import out_domain_responses, greeting_responses, bye_responses
 
 
 class PreprocessEvent(Event):
@@ -28,17 +28,19 @@ class RetrieveEvent(Event):
     query: str
 
 
-class PreAnswerEvent(Event):
+class AfterRetrieveEvent(Event):
     contexts: list[str]
 
 
 class AnswerEvent(Event):
+    contexts: list[str] = []
     answer: str
 
 
 class FinalAnswerEvent(StopEvent):
     answer: str
     final_query: str
+    contexts: list[str]
 
 
 class AppFlow(Workflow):
@@ -48,6 +50,7 @@ class AppFlow(Workflow):
 
         # Store the query in the context to use later
         await ctx.set("query", ev.query)
+        await ctx.set("only_retrive", ev.only_retrive)
 
         # Trigger the preprocessing step
         return PreprocessEvent(query=ev.query, history=ev.history)
@@ -71,7 +74,7 @@ class AppFlow(Workflow):
             tgt_lang="vi",
             method=config.translate_options.method,
             model=config.translate_options.model,
-            system_prompt_mode=config.translate_options.system_prompt_mode,
+            prompt_mode=config.translate_options.prompt_mode,
         )
         logger.info(f"Translated query: {translated_query}")
 
@@ -82,28 +85,39 @@ class AppFlow(Workflow):
                 query=translated_query,
                 history=history,
                 model=config.rewrite_options.model,
-                system_prompt_mode=config.rewrite_options.system_prompt_mode,
+                prompt_mode=config.rewrite_options.prompt_mode,
             )
             logger.info(f"Rewritten query: {translated_query}")
 
         await ctx.set("final_query", translated_query)
-        # Check in-domain query
-        is_in_domain = await check_domain(
+
+        # Get topic from the query
+        topic = await check_domain(
             text=translated_query,
             model=config.check_domain_options.model,
-            system_prompt_mode=config.check_domain_options.system_prompt_mode,
+            prompt_mode=config.check_domain_options.prompt_mode,
         )
 
-        if not is_in_domain:
-            logger.debug("Query is out of domain, returning out-of-domain response.")
-            response = random.choice(out_domain_responses)
-            return AnswerEvent(answer=response)
+        logger.info(f"Topic: {topic}")
+        if topic == "other":
+            random_response = random.choice(out_domain_responses)
+            return AnswerEvent(answer=random_response)
+
+        elif topic == "greeting":
+            random_response = random.choice(greeting_responses)
+            return AnswerEvent(answer=random_response)
+
+        elif topic == "bye":
+            random_response = random.choice(bye_responses)
+            return AnswerEvent(answer=random_response)
 
         # Otherwise, proceed to the retrieval step
         return RetrieveEvent(query=translated_query)
 
     @step
-    async def retrieve(self, ev: RetrieveEvent) -> PreAnswerEvent:
+    async def retrieve(
+        self, ctx: Context, ev: RetrieveEvent
+    ) -> AfterRetrieveEvent | FinalAnswerEvent:
         """
         Retrieve the answer based on the preprocessed query.
 
@@ -122,10 +136,15 @@ class AppFlow(Workflow):
             method=config.retriever_options.method,
         )
 
-        return PreAnswerEvent(contexts=contexts)
+        only_retrive = await ctx.get("only_retrive")
+        if only_retrive:
+            # If only retrieve is true, return the contexts
+            return FinalAnswerEvent(answer="", final_query=ev.query, contexts=contexts)
+
+        return AfterRetrieveEvent(contexts=contexts)
 
     @step
-    async def pre_answer(self, ctx: Context, ev: PreAnswerEvent) -> AnswerEvent:
+    async def pre_answer(self, ctx: Context, ev: AfterRetrieveEvent) -> AnswerEvent:
         """
         Generate an answer based on the retrieved contexts.
 
@@ -144,13 +163,21 @@ class AppFlow(Workflow):
                 query=query,
                 contexts=ev.contexts,
                 model=config.llm_options.model,
-                system_prompt_mode=config.llm_options.system_prompt_mode,
+                prompt_mode=config.llm_options.prompt_mode,
             )
-            return AnswerEvent(answer=answer)
+            return AnswerEvent(answer=answer, contexts=ev.contexts)
+        elif config.llm_options.provider == "vllm":
+            answer = await vllm_generate_answer(
+                query=query,
+                contexts=ev.contexts,
+                max_tokens=config.llm_options.inference_options.max_tokens,
+                prompt_mode=config.llm_options.prompt_mode,
+            )
+            return AnswerEvent(answer=answer, contexts=ev.contexts)
         else:
             raise ValueError(
                 f"Unsupported LLM provider: {config.llm_options.provider}. "
-                "Supported providers are: ['openai']"
+                "Supported providers are: ['openai', 'vllm']"
             )
 
     @step
@@ -175,9 +202,13 @@ class AppFlow(Workflow):
             answer=ev.answer,
             method=config.translate_options.method,
             model=config.translate_options.model,
-            system_prompt_mode=config.translate_options.system_prompt_mode,
+            prompt_mode=config.translate_options.prompt_mode,
         )
         answer = answer.strip().replace(".docx", "")
         logger.info(f"Final answer: {answer}")
 
-        return FinalAnswerEvent(answer=answer, final_query=await ctx.get("final_query"))
+        return FinalAnswerEvent(
+            answer=answer,
+            final_query=await ctx.get("final_query"),
+            contexts=ev.contexts,
+        )
