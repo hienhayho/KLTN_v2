@@ -2,13 +2,16 @@
 #
 # 22GB
 
-DATA=$1
-OUT=$2
-E=${3:-"3"}
+# SeaLLMs/SeaLLMs-v3-1.5B-Chat
+
+MODEL=$1
+DATA=$2
+OUT=$3
+E=${4:-"3"}
 
 HF_HOME="./LLaMA-Factory/model_cache" HF_TOKEN= WANDB_API_KEY= MODELSCOPE_CACHE="./model_cache" NPROC_PER_NODE=1 CUDA_VISIBLE_DEVICES=0 \
     swift sft \
-    --model SeaLLMs/SeaLLMs-v3-1.5B-Chat \
+    --model "$MODEL" \
     --model_type qwen2 \
     --train_type lora \
     --dataset "$DATA" \

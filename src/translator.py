@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import pycountry
 from loguru import logger
 from typing import Literal
 from googletrans import Translator
@@ -16,7 +17,7 @@ from llama_index.llms.openai import OpenAI
 from llama_index.core.llms import ChatMessage
 
 from src.utils import config
-from src.prompt import translate_prompt
+from src.prompt import translate_prompt, get_prompt
 
 
 async def async_detect_lang(text: str) -> str:
@@ -64,11 +65,11 @@ def lingua_detect_lang(
     Returns:
         str: The detected language code (e.g., 'en' for English).
     """
-    languages = [Language.ENGLISH, Language.VIETNAMESE]
+    languages = [Language.ENGLISH, Language.VIETNAMESE, Language.CHINESE]
     detector = LanguageDetectorBuilder.from_languages(*languages).build()
     language = detector.detect_language_of(text)
 
-    return language.iso_code_639_1.name.lower()
+    return language.iso_code_639_1.name.lower() if language else "unknown"
 
 
 async def translate_ggtrans(text: str, src_lang: str, tgt_lang: str) -> str:
@@ -112,23 +113,11 @@ async def translate_llm(
     """
     llm = OpenAI(model=model)
 
-    system_prompt = (
-        translate_prompt.system_prompt.plain_text_version
-        if prompt_mode == "plain_text"
-        else translate_prompt.system_prompt.json_version
-    )
-    user_prompt = (
-        translate_prompt.user_prompt.plain_text_version
-        if prompt_mode == "plain_text"
-        else translate_prompt.user_prompt.json_version
-    )
+    system_prompt, user_prompt = get_prompt(prompt=translate_prompt, mode=prompt_mode)
 
-    def get_lang(lang: str) -> str:
-        if lang == "en":
-            return "English"
-        elif lang == "vi":
-            return "Vietnamese"
-        return lang
+    def get_lang(iso_code: str) -> str:
+        lang = pycountry.languages.get(alpha_2=iso_code.lower())
+        return lang.name.lower() if lang else iso_code
 
     messages = [
         ChatMessage(

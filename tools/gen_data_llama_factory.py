@@ -29,8 +29,12 @@ def get_source(context: str):
             return line.split("Tài liệu")[1].strip().replace(".docx", "")
 
 
-system_prompt, user_prompt_template = get_prompt(prompt=gen_data_prompt, mode=args.mode)
+system_prompt, user_prompt_template = get_prompt(
+    prompt=gen_data_prompt, mode=args.mode, is_cot=not args.not_cot
+)
 
+print(system_prompt)
+print("===========================")
 print(user_prompt_template)
 
 for row in data:

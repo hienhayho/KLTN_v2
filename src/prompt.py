@@ -14,26 +14,48 @@ class Prompt(BaseModel):
     user_prompt: PromptMode
 
 
-def get_prompt(prompt: Prompt, mode: str):
+def get_prompt(prompt: Prompt, mode: str, is_cot: bool = True):
+    system_prompt, user_prompt = None, None
     if mode == "json":
-        return prompt.system_prompt.json_version, prompt.user_prompt.json_version
+        system_prompt, user_prompt = (
+            prompt.system_prompt.json_version,
+            prompt.user_prompt.json_version,
+        )
     elif mode == "plain_text":
-        return (
+        system_prompt, user_prompt = (
             prompt.system_prompt.plain_text_version,
             prompt.user_prompt.plain_text_version,
         )
     elif mode == "xml":
-        return prompt.system_prompt.xml_version, prompt.user_prompt.xml_version
+        system_prompt, user_prompt = (
+            prompt.system_prompt.xml_version,
+            prompt.user_prompt.xml_version,
+        )
     elif mode == "yaml":
-        return prompt.system_prompt.yaml_version, prompt.user_prompt.yaml_version
+        system_prompt, user_prompt = (
+            prompt.system_prompt.yaml_version,
+            prompt.user_prompt.yaml_version,
+        )
     elif mode == "markdown":
-        return (
+        system_prompt, user_prompt = (
             prompt.system_prompt.markdown_version,
             prompt.user_prompt.markdown_version,
         )
     else:
         raise ValueError("Invalid mode")
 
+    if not is_cot:
+        system_prompt = system_prompt_not_cot
+
+    return system_prompt, user_prompt
+
+
+# system_prompt_not_cot = """Your task is to provide answer for the given question based on provided context.
+
+# Instruction: Given the question, context above, provide a logical answer."""
+system_prompt_not_cot = """<Persona>Your task is to provide answer for the given question based on provided context.</Persona>
+        
+<Instruction>Instruction: Given the question, context above, provide a logical answer.</Instruction>"""
 
 gen_data_prompt = Prompt(
     system_prompt=PromptMode(
