@@ -1,6 +1,6 @@
 #!/bin/bash
 
-HF_HOME="./LLaMA-Factory/model_cache" HF_TOKEN=REMOVED WANDB_API_KEY=f42e56bd25da9af1e3c082d65a73292127f143d7 MODELSCOPE_CACHE="./model_cache" NPROC_PER_NODE=1 CUDA_VISIBLE_DEVICES=0 \
+HF_HOME="./LLaMA-Factory/model_cache" MODELSCOPE_CACHE="./model_cache" NPROC_PER_NODE=1 CUDA_VISIBLE_DEVICES=0 \
     swift sft \
     --model Qwen/Qwen2.5-3B-Instruct \
     --train_type lora \
