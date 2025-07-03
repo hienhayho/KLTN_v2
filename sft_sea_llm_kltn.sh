@@ -9,7 +9,7 @@ DATA=$2
 OUT=$3
 E=${4:-"3"}
 
-HF_HOME="./LLaMA-Factory/model_cache" HF_TOKEN= WANDB_API_KEY= MODELSCOPE_CACHE="./model_cache" NPROC_PER_NODE=1 CUDA_VISIBLE_DEVICES=0 \
+HF_HOME="./LLaMA-Factory/model_cache" MODELSCOPE_CACHE="./model_cache" NPROC_PER_NODE=2 CUDA_VISIBLE_DEVICES=0,1 \
     swift sft \
     --model "$MODEL" \
     --model_type qwen2 \
@@ -23,14 +23,14 @@ HF_HOME="./LLaMA-Factory/model_cache" HF_TOKEN= WANDB_API_KEY= MODELSCOPE_CACHE=
     --per_device_eval_batch_size 1 \
     --learning_rate 1e-4 \
     --lora_rank 8 \
-    --deepspeed zero2 \
+    --deepspeed zero2_offload \
     --lora_alpha 32 \
     --target_modules all-linear \
     --gradient_accumulation_steps 1 \
     --save_steps 1000 \
     --save_total_limit 2 \
     --logging_steps 50 \
-    --max_length 8196 \
+    --max_length 4098 \
     --output_dir "$OUT" \
     --warmup_ratio 0.05 \
     --dataset_num_proc 4 \

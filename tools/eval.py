@@ -16,13 +16,18 @@ from src.flow import AppFlow
 from src.prompt import llm_as_a_judge_prompt, get_prompt
 
 
-llm = OpenAI(model="gpt-4.1-mini")
+llm = OpenAI(model="gpt-4.1-mini", temperature=0.0)
 
 
 def get_args():
     parser = argparse.ArgumentParser(description="Evaluate")
     parser.add_argument("--i", type=str, help="Input CSV file")
     parser.add_argument("--o", type=str, required=True, help="Output dir")
+    parser.add_argument(
+        "--only-retrieve",
+        action="store_true",
+        help="Only retrive the context, do not run the app flow",
+    )
     parser.add_argument(
         "--cfg-options",
         nargs="+",
@@ -85,10 +90,12 @@ async def main(args):
         start_time = time.time()
 
         app_flow = AppFlow(timeout=1000, verbose=False)
-        result = await app_flow.run(query=query, history=[], only_retrive=False)
+        result = await app_flow.run(
+            query=query, history=[], only_retrieve=args.only_retrieve
+        )
         end_time = time.time()
 
-        if ground_truth:
+        if ground_truth and not args.only_retrieve:
             is_correct = await llm_as_a_judge(
                 query=query,
                 ground_truth=ground_truth,
@@ -137,7 +144,7 @@ async def main(args):
     pl.DataFrame(all_pairs).write_ndjson(Path(args.o) / "all_pairs.jsonl")
 
     logger.info(f"Saved result to {args.o}")
-    logger.info(f"Accuracy: {correct / num_questions:.2f}")
+    logger.info(f"Accuracy: {correct / num_questions:.4f}")
     logger.info(f"Total time: {total_times:.2f}s")
     logger.info(f"Average time: {total_times / num_questions:.2f}s")
 

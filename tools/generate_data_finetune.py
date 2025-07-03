@@ -30,9 +30,6 @@ embed_model = OpenAIEmbedding(
 )
 Settings.embed_model = embed_model
 
-bm_25_index = "contextual_chunk_with_context_db/bm25_retriever"
-vector_db_collection = "contextual_chunk_with_context"
-
 system_message = """You are an expert question generator. Your task is to create questions based on the provided document content.
 
 **Instruction**:

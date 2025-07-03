@@ -65,8 +65,10 @@ def lingua_detect_lang(
     Returns:
         str: The detected language code (e.g., 'en' for English).
     """
-    languages = [Language.ENGLISH, Language.VIETNAMESE, Language.CHINESE]
+    languages = [Language.ENGLISH, Language.VIETNAMESE, Language.JAPANESE]
+    # languages = [Language.ENGLISH, Language.VIETNAMESE]
     detector = LanguageDetectorBuilder.from_languages(*languages).build()
+    # detector = LanguageDetectorBuilder.from_all_languages().build()
     language = detector.detect_language_of(text)
 
     return language.iso_code_639_1.name.lower() if language else "unknown"
@@ -148,7 +150,7 @@ async def translate(
     method: Literal["ggtrans", "llm"],
     model: str | None = None,
     prompt_mode: Literal["plain_text", "json"] = "plain_text",
-) -> str:
+) -> tuple[str, str]:
     """
     Translate the given text from source language to target language.
 
@@ -161,11 +163,18 @@ async def translate(
         model (str | None): The OpenAI's LLM to use for translation (if method is "llm").
 
     Returns:
-        str: The translated text.
+        tuple[str, str]: The translated text and the source language code.
     """
     text_lang = await async_detect_lang(text)
     if text_lang == tgt_lang:
-        return text
+        return text, text_lang
+
+    if text_lang not in ["vi", "en"]:
+        logger.warning(
+            f"Detected language '{text_lang}' is not supported for translation. "
+            "Only 'vi' (Vietnamese) and 'en' (English) are supported."
+        )
+        return "", text_lang
 
     assert method in [
         "ggtrans",
@@ -175,11 +184,14 @@ async def translate(
     logger.debug(f"Using: {method}")
 
     if method == "ggtrans":
-        return await translate_ggtrans(text, text_lang, tgt_lang)
+        return await translate_ggtrans(text, text_lang, tgt_lang), text_lang
 
     elif method == "llm":
         assert model is not None, "Model must be specified when using 'llm' method."
-        return await translate_llm(text, text_lang, tgt_lang, model, prompt_mode)
+        return (
+            await translate_llm(text, text_lang, tgt_lang, model, prompt_mode),
+            text_lang,
+        )
 
 
 async def translate_final_answer(
@@ -189,7 +201,7 @@ async def translate_final_answer(
     method: Literal["ggtrans", "llm"],
     model: str | None = None,
     prompt_mode: Literal["plain_text", "json"] = "plain_text",
-) -> str:
+) -> tuple[str, str]:
     """
     Translate the final answer to the language of the query.
     Args:
@@ -217,7 +229,7 @@ async def translate_final_answer(
     )
 
     if query_lang == answer_lang:
-        return answer
+        return answer, query_lang
 
     logger.debug(f"Translate: {answer_lang} -> {query_lang}")
 

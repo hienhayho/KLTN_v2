@@ -6,7 +6,7 @@ from src.prompt import rewrite_prompt_with_history
 
 async def rewrite_prompt(
     query: str,
-    history: list[str],
+    history: list[dict],
     model: str,
     prompt_mode: Literal["plain_text", "json"] = "plain_text",
 ) -> str:
@@ -47,7 +47,10 @@ async def rewrite_prompt(
         ChatMessage(
             role="user",
             content=user_prompt.format(
-                query=query, history="\n - ".join([msg for msg in history])
+                query=query,
+                history="\n - ".join(
+                    [msg["content"] for msg in history if msg["role"] == "user"]
+                ),
             ),
         ),
     ]

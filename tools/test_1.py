@@ -1,12 +1,21 @@
-# from transformers import AutoModelForCausalLM
+from pathlib import Path
 
-# model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
+dir = Path(
+    "/mlcv2/WorkingSpace/Personal/hienht/KLTN_new/data_chunks/output_large_hybrid_with_context_copy"
+)
+output_dir = Path(
+    "/mlcv2/WorkingSpace/Personal/hienht/KLTN_new/data_chunks/output_large_hybrid_with_context_copy_modified"
+)
+output_dir.mkdir(parents=True, exist_ok=True)
 
-# print(model)
-import polars as pl
+files = [file for file in dir.glob("*.txt")]
 
-data = pl.read_csv("test_564.csv")
+for file in files:
+    with open(file, "r", encoding="utf-8") as f:
+        lines = f.read()
 
-df = data.head(5)
+    lines = lines.replace(".docx", "")
 
-df.write_csv("test_564_5.csv")
+    file_name = file.name
+    with open(output_dir / file_name, "w", encoding="utf-8") as f:
+        f.write(lines)

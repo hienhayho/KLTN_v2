@@ -38,3 +38,20 @@ bye_responses = [
     "Tạm biệt bạn, chúc mọi việc của bạn diễn ra suôn sẻ!",
     "Cảm ơn bạn đã ghé thăm. Hẹn gặp lại bạn sau nhé!",
 ]
+
+not_supported_languages_responses = [
+    "Xin lỗi, tôi không hỗ trợ ngôn ngữ này. Bạn có thể thử lại với tiếng Việt hoặc tiếng Anh.",
+    "Rất tiếc, tôi chỉ hỗ trợ tiếng Việt và tiếng Anh. Bạn hãy thử lại với một trong hai ngôn ngữ này nhé.",
+    "Hiện tại tôi chỉ có thể xử lý tiếng Việt và tiếng Anh. Bạn hãy thử lại với một trong hai ngôn ngữ này nhé.",
+    "Xin lỗi, tôi không thể hiểu ngôn ngữ này. Bạn hãy thử lại với tiếng Việt hoặc tiếng Anh nhé.",
+    "Tôi không hỗ trợ ngôn ngữ này. Bạn có thể đặt câu hỏi bằng tiếng Việt hoặc tiếng Anh.",
+    "Rất tiếc, tôi chỉ có thể giao tiếp bằng tiếng Việt hoặc tiếng Anh. Bạn hãy thử lại với một trong hai ngôn ngữ này nhé.",
+    "Tôi e rằng hiện tại chỉ hỗ trợ tiếng Việt và tiếng Anh. Mong bạn thông cảm và thử lại với một trong hai ngôn ngữ này.",
+    "Xin lỗi, tôi chưa được huấn luyện để hiểu ngôn ngữ này. Vui lòng sử dụng tiếng Việt hoặc tiếng Anh.",
+    "Ngôn ngữ bạn đang dùng hiện chưa được hỗ trợ. Hãy thử lại với tiếng Việt hoặc tiếng Anh nhé!",
+    "Rất tiếc, tôi không thể xử lý ngôn ngữ này. Vui lòng đặt câu hỏi bằng tiếng Việt hoặc tiếng Anh.",
+    "Tôi chỉ có thể hỗ trợ tiếng Việt và tiếng Anh vào lúc này. Cảm ơn bạn đã thông cảm.",
+    "Bạn vui lòng sử dụng tiếng Việt hoặc tiếng Anh để tôi có thể hỗ trợ bạn tốt hơn nhé.",
+    "Tôi chưa hiểu rõ yêu cầu vì ngôn ngữ này chưa được hỗ trợ. Hãy thử lại với tiếng Việt hoặc tiếng Anh.",
+    "Xin lỗi vì sự bất tiện này. Hiện tôi chỉ hỗ trợ hai ngôn ngữ: tiếng Việt và tiếng Anh.",
+]

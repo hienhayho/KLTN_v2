@@ -1,6 +1,5 @@
 import chromadb
 import argparse
-import uuid
 from tqdm import tqdm
 from pathlib import Path
 from loguru import logger
@@ -26,19 +25,7 @@ load_dotenv()
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Ingest documents")
-    parser.add_argument(
-        "--root",
-        type=str,
-        required=False,
-        # default="data/Quy_trinh_ISO_Word",
-        help="Root directory containing raw documents.",
-    )
-    parser.add_argument(
-        "--method",
-        type=str,
-        choices=["semantic", "custom", "token", "sentence"],
-        default="custom",
-    )
+    parser.add_argument("--save-chunks-folder", type=str, required=True)
     parser.add_argument(
         "--i",
         type=str,
@@ -61,45 +48,9 @@ embed_model = OpenAIEmbedding(
 Settings.embed_model = embed_model
 
 
-def load_reader(args):
-    logger.info(f"Reader: {args.method}")
-    if args.method == "custom":
-        from src.readers.rule_based_chunker import CustomReader
-
-        return CustomReader(
-            titles=[
-                "1. mục đích",
-                "2. phạm vi áp dụng",
-                "3. tài liệu viện dẫn",
-                "4. định nghĩa/viết tắt",
-                "5. nội dung quy trình",
-                "6. biểu mẫu",
-                ". hồ sơ lưu",
-            ]
-        )
-    else:
-        from src.readers.llama_index_chunker import ChunkerBasedReader
-
-        return ChunkerBasedReader(
-            method=args.method,
-        )
-
-
-def get_chunks(args):
-    logger.info(f"Loading documents from {args.root}")
-    reader = load_reader(args)
-    data = SimpleDirectoryReader(
-        args.root,
-        recursive=True,
-        file_extractor={".docx": reader},
-    ).load_data(show_progress=True)
-
-    return data
-
-
 def save_chunks(args, data):
-    logger.info(f"Saving chunks to {args.i}")
-    output_folder = Path(args.i)
+    logger.info(f"Saving chunks to {args.save_chunks_folder} ...")
+    output_folder = Path(args.save_chunks_folder)
     output_folder.mkdir(exist_ok=True, parents=True)
 
     for d in tqdm(data):
@@ -110,10 +61,6 @@ def save_chunks(args, data):
 def ingest_documents(args):
     logger.info("Ingesting documents...")
 
-    if args.root:
-        chunks = get_chunks(args)
-        save_chunks(args, chunks)
-
     output_dir = Path(args.o)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -122,7 +69,7 @@ def ingest_documents(args):
 
     data = []
     files = list(Path(args.i).rglob("*.txt"))
-    for file in tqdm(files, desc="Loading files"):
+    for file in tqdm(files, desc="Loading files ..."):
         with open(file, "r", encoding="utf-8") as f:
             content = f.read()
             data.append(Document(text=content))
@@ -152,11 +99,7 @@ def ingest_documents(args):
     bm25_out_dir = Path(args.o) / "bm25_retriever"
     bm25_retriever.persist(str(bm25_out_dir))
 
-    test_result = bm25_retriever.retrieve("xin điều kiện kết hôn cho nam")
-
-    for node in test_result:
-        print(node.text)
-        print("\n==========\n\n")
+    save_chunks(args, data)
 
 
 if __name__ == "__main__":

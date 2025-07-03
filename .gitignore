@@ -200,3 +200,16 @@ test_12345
 vlmu_mqa_v1.5
 wandb
 data
+eval_results_temp_0
+
+ui.py
+sft_model_f
+sft_new_data_f
+soc_data_sft
+retrievers
+data_chunks
+eval_mrr
+test_gemini
+test_qwen2.5_1.5b_sft_think_new_30k_SW
+test_qwen2.5_1.5b_sft_think_new_88k
+unsloth_compiled_cache
